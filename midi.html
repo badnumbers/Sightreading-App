@@ -61,10 +61,12 @@
         }
     
         function midihandler( event ) {
-            if (event.data[0] == 144) { // Note on
+            // Scarlett interface uses 144; VMPK uses 145
+            if (event.data[0] == 144 || event.data[0] == 145) { // Note on
                 handleNoteOnEvent(event.data[1]);
             }
-            else if (event.data[0] == 128) { // Note off
+            // Scarlett interface uses 144; VMPK uses 145
+            else if (event.data[0] == 128 || event.data[0] == 129) { // Note off
                 handleNoteOffEvent(event.data[1]);
             }
         }
