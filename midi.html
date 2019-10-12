@@ -1,0 +1,334 @@
+<html>
+  <head>
+    <title></title>
+    <meta content="">
+    <style></style>
+    <script src="https://npmcdn.com/vexflow@1.2.89/releases/vexflow-debug.js"></script>
+    <script src="allNotes.js"></script>
+  </head>
+  <body>
+    <p id="lblScore"></p>
+    <p id="lblSecondsRemaining"></p>
+    <div id="boo"></div>
+</body>
+    <script type="text/javascript">    
+        noteNames = [ 'c', 'd', 'e', 'f', 'g', 'a', 'b' ];
+        game = {
+            "key": "C",
+            "playing": false,
+            "score": 0,
+            "secondsremaining": 0
+        };
+        function DoVexFlowStuff() {
+            VF = Vex.Flow;
+            sheet = {
+                "staves": {}
+            };
+        }
+        
+        function drawStaves() {
+            // Create an SVG renderer and attach it to the DIV element named "boo".
+            var div = document.getElementById("boo")
+            var renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
+
+            // Configure the rendering context.
+            renderer.resize(500, 500);
+            sheet.context = renderer.getContext();
+            sheet.context.setFont("Arial", 10, "").setBackgroundFillStyle("#eed");
+
+            // Create a stave of width 400 at position 10, 40 on the canvas.
+            sheet.staves.treble = new VF.Stave(10, 40, 400);
+
+            var trebleClefKeySig = new VF.KeySignature(game.key);
+            var bassClefKeySig = new VF.KeySignature(game.key);
+            
+            // Add a clef and time signature.
+            sheet.staves.treble.addClef("treble");
+            trebleClefKeySig.addToStave(sheet.staves.treble);
+
+            // Connect it to the rendering context and draw!
+            sheet.staves.treble.setContext(sheet.context).draw();
+            
+            // Create a stave of width 400 at position 10, 40 on the canvas.
+            sheet.staves.bass = new VF.Stave(10, 150, 400);
+
+            // Add a clef and time signature.
+            sheet.staves.bass.addClef("bass");
+            bassClefKeySig.addToStave(sheet.staves.bass);
+
+            // Connect it to the rendering context and draw!
+            sheet.staves.bass.setContext(sheet.context).draw();
+        }
+    
+        function midihandler( event ) {
+            if (event.data[0] == 144) { // Note on
+                handleNoteOnEvent(event.data[1]);
+            }
+            else if (event.data[0] == 128) { // Note off
+                handleNoteOffEvent(event.data[1]);
+            }
+        }
+        
+        function handleNoteOnEvent(midinote) {
+            if (game.playing) {
+                var note = allNotes[game.key].find(note => note.midinote == midinote);
+                if (note == undefined) {
+                    return;
+                }
+                
+                if (note == game.note) {
+                    addNote(note, "blue");
+                    incrementScore();
+                }
+                
+                else {
+                    addNote(note, "red");
+                    decrementScore();
+                }
+            }
+            else {
+                if (midinote == 60) {
+                    startGame();
+                }
+            }
+        }
+        
+        function handleNoteOffEvent(midinote) {
+        if (game.playing) {
+                var note = allNotes[game.key].find(note => note.midinote == midinote);
+                if (note == undefined) {
+                    return;
+                }
+                
+                removeNote(note);
+                
+                if (note == game.note) {
+                    game.note = chooseRandomNote(36,84);
+                    addNote(game.note, "black");
+                }
+            }
+        }
+        
+        function startGame() {
+            drawStaves();
+            game.playing = true;
+            game.secondsremaining = 60;
+            game.score = 0;
+            lblScore.innerText = game.score;
+            game.note = chooseRandomNote(36,84);
+            addNote(game.note, "black");
+            tick();
+        }
+        
+        function endGame() {
+            game.playing = false;
+            removeStave();
+        }
+        
+        function incrementScore() {
+            lblScore.innerText = ++game.score;
+        }
+        
+        function decrementScore() {
+            lblScore.innerText = --game.score;
+        }
+
+        function setupMIDI() {
+            navigator.requestMIDIAccess().then(
+                function (m) {
+                    console.log("MIDI initialized");
+                    m.inputs.forEach(
+                        function (entry) {
+                            console.log("detected MIDI input device " + entry.name);
+                            entry.onmidimessage = midihandler;
+                            for (var key in entry) {
+                                console.log("entry." + key + " = " + entry[key]);
+                            }
+                        }
+                    );
+                },
+                function (msg) { console.log("error initializing MIDI: " + msg); }
+            );
+        }
+        
+        function generateRandomNote(lowerLimit, upperLimit) {
+            var notenumber = generateRandomNumber(lowerLimit, upperLimit);
+        }
+        
+        function getNoteNameFromNoteNumber(notenumber) {
+            return noteNames[notenumber % 7] + "/" + (Math.floor(notenumber / 7) + 4);
+        }
+        
+        function generateRandomNumber(lowerLimit, upperLimit) {
+            var randomNumber = Math.random();
+            var range = upperLimit - lowerLimit + 1;
+            return Math.floor(randomNumber * range) + lowerLimit;
+        }
+        
+        function addNote(note, colour) {
+            var stave = chooseStave(note);
+            var clef = stave == sheet.staves.treble ? "treble" : "bass";
+            
+            var note = note.accidental == null ? 
+                    new VF.StaveNote({clef: clef, keys: [note.notename], duration: "w" }) :
+                    new VF.StaveNote({clef: clef, keys: [note.notename], duration: "w" }).addAccidental(0, new VF.Accidental(note.accidental));
+            note.setStyle({fillStyle: colour, strokeStyle: colour});
+            
+            var notes = [
+                note
+            ];
+
+            // Create a voice in 4/4 and add above notes
+            var voice = new VF.Voice({num_beats: 4,  beat_value: 4});
+            voice.addTickables(notes);
+
+            // Format and justify the notes to 400 pixels.
+            var formatter = new VF.Formatter().joinVoices([voice]).format([voice], 400);
+
+            // Render voice
+            voice.draw(sheet.context, stave);
+        }
+        
+        function removeNote(note) {
+            var noteTrebleYPos = calculateYPos(note.position.treble.y);
+            var noteBassYPos = calculateYPos(note.position.treble.y + 10);
+        
+            if (note.accidental == null) {
+                removeItemsFromStave(
+                    elem => elem.tagName == "g" && 
+                        (getYPos(elem) == noteTrebleYPos || getYPos(elem) == noteBassYPos)  && 
+                        elem.querySelector(".vf-modifiers").innerHTML == "",
+                    elem => elem.tagName = "path" && 
+                        elem.getAttribute("stroke-width") == "1");
+            }
+            else {
+                removeItemsFromStave(
+                    elem => elem.tagName == "g" && 
+                        (getYPos(elem) == noteTrebleYPos || getYPos(elem) == noteBassYPos) &&
+                        elem.querySelector(".vf-modifiers").innerHTML != "" &&
+                        elem.querySelector(".vf-modifiers").firstChild.tagName == "path", 
+                    elem => elem.tagName = "path" && 
+                        elem.getAttribute("stroke-width") == "1");
+            }
+        }
+        
+        function calculateYPos(noteposition) {
+            return noteposition * 5 + 20;
+        }
+        
+        function getYPos(noteElement) {            
+            var whatever = noteElement.firstChild.firstChild.firstChild.getAttribute("d");
+            whatever = whatever.split("M");
+            whatever = whatever[1];
+            whatever = whatever.split(" ");
+            whatever = whatever[1];
+            return whatever;
+        }
+        
+        function chooseRandomNote(lowerlimit, upperlimit) {
+            var validnotes = [];
+            var notesinrange = allNotes[game.key].filter(note => note.midinote >= lowerlimit && note.midinote <= upperlimit && note.accidental == null);
+            for (let note of notesinrange) {
+                validnotes.push(note);
+            }
+            
+            return validnotes[Math.floor(Math.random() * validnotes.length)];
+        }
+        
+        function removeStave() {
+            var thingsInSvg = document.querySelector('svg').childNodes;
+            var elementstoremove = [];
+            for (let elem of thingsInSvg) {
+                elementstoremove.push(elem);
+            }
+            
+            for (let elem of elementstoremove) {
+                removeElement(elem);
+            }
+        }
+        
+        function removeItemsFromStave(selector, predecessorselector) {
+            var thingsInSvg = document.querySelector('svg').childNodes;
+            var elementstoremove = [];
+            var currentpredecessors = [];
+            var elementcounter = 0;
+            for (let elem of thingsInSvg) {
+                elementcounter++;
+                if (elementcounter < 17) {
+                    continue; // skip the staves themselves
+                }
+                
+                if (predecessorselector != undefined && predecessorselector(elem)) {
+                    currentpredecessors.push(elem);
+                }
+                else if (selector(elem)) {
+                    for (let pred of currentpredecessors) {
+                        elementstoremove.push(pred);
+                    }
+                    currentpredecessors = [];
+                    elementstoremove.push(elem);
+                }
+                else {
+                    currentpredecessors = [];
+                }
+            }
+            
+            for (let elem of elementstoremove) {
+                removeElement(elem);
+            }
+        }
+        
+        function elementIsNote(element) {
+            return element.tagName == 'g';
+        }
+        
+        function removeElement(element) {
+            element.parentNode.removeChild(element);
+        }
+        
+        function returnDValues() {
+            var thingsInSvg = document.querySelectorAll('svg g g g path');
+            for (let elem of thingsInSvg) {
+                console.log(elem.getAttribute("d"));
+            }
+        }
+        
+        function chooseStave(note) {
+            if (note.midinote > 60) {
+                return sheet.staves.treble;
+            }
+            
+            if (note.midinote < 60) {
+                return sheet.staves.bass;
+            }
+            
+            if (Math.random() > 0.5) {
+                return sheet.staves.treble;
+            }
+            
+            return sheet.staves.bass;
+        }
+        
+        function tick() {
+            lblSecondsRemaining.innerText = game.secondsremaining;
+            if (game.secondsremaining == 0) {
+                endGame();
+            }
+            else {
+                game.secondsremaining--;
+                setTimeout(tick, 1000);
+            }
+        }
+
+        window.onload = function() {
+            const lblLatestNote = document.getElementById('lblLatestNote');
+            const lblScore = document.getElementById('lblScore');
+            const lblSecondsRemaining = document.getElementById('lblSecondsRemaining');
+            
+            setupMIDI();
+            DoVexFlowStuff();
+            
+            lblScore.innerText = game.score;
+        };
+        </script>
+</html>
