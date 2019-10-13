@@ -89,7 +89,7 @@
             }
             else {
                 if (midinote == 60) {
-                    startGame();
+                    beginRound();
                 }
             }
         }
@@ -110,7 +110,7 @@
             }
         }
         
-        function startGame() {
+        function beginRound() {
             drawStaves();
             game.playing = true;
             game.secondsremaining = 60;
@@ -121,9 +121,9 @@
             tick();
         }
         
-        function endGame() {
+        function endRound() {
             game.playing = false;
-            removeStave();
+            removeStaves();
         }
         
         function incrementScore() {
@@ -236,10 +236,11 @@
             return validnotes[Math.floor(Math.random() * validnotes.length)];
         }
         
-        function removeStave() {
-            var thingsInSvg = document.querySelector('svg').childNodes;
+        function removeStaves() {
+            var divStaveContainer = document.getElementById("divStaveContainer");
+            var svgs = divStaveContainer.querySelectorAll('svg');
             var elementstoremove = [];
-            for (let elem of thingsInSvg) {
+            for (let elem of svgs) {
                 elementstoremove.push(elem);
             }
             
@@ -313,7 +314,7 @@
         function tick() {
             lblSecondsRemaining.innerText = game.secondsremaining;
             if (game.secondsremaining == 0) {
-                endGame();
+                endRound();
             }
             else {
                 game.secondsremaining--;
