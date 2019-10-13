@@ -9,7 +9,7 @@
   <body>
     <p id="lblScore"></p>
     <p id="lblSecondsRemaining"></p>
-    <div id="boo"></div>
+    <div id="divStaveContainer"></div>
 </body>
     <script type="text/javascript">    
         noteNames = [ 'c', 'd', 'e', 'f', 'g', 'a', 'b' ];
@@ -27,9 +27,8 @@
         }
         
         function drawStaves() {
-            // Create an SVG renderer and attach it to the DIV element named "boo".
-            var div = document.getElementById("boo")
-            var renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
+            var divStaveContainer = document.getElementById("divStaveContainer");
+            var renderer = new VF.Renderer(divStaveContainer, VF.Renderer.Backends.SVG);
 
             // Configure the rendering context.
             renderer.resize(500, 500);
